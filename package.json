@@ -1,0 +1,20 @@
+{
+  "name": "adelina-prospeccao",
+  "version": "1.0.0",
+  "description": "Console de prospeccao da Adelina: envio de propostas por e-mail (SMTP) e WhatsApp (Cloud API / wa.me).",
+  "type": "module",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "seed": "node src/seed.js",
+    "dev": "node --watch server.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "nodemailer": "^6.10.0"
+  }
+}

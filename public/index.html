@@ -1,0 +1,943 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5" />
+<meta name="description" content="Adelina · Prospecção — painel para enviar propostas a pousadas por e-mail (SMTP) e WhatsApp (Cloud API ou links wa.me)." />
+<meta name="theme-color" content="#09090b" />
+<title>Adelina · Prospecção</title>
+<style>
+  :root{
+    --bg:#09090b;--surface:#131316;--surfaceHi:#191920;--border:#27272a;
+    --text:#ededf0;--muted:#9b9ba3;--faint:#65656d;--accent:#6fcf97;--accentDim:#1d3a2b;
+    --amber:#d6a85f;--sky:#79b4d4;--rose:#c07b7b;
+    --radius:10px;
+    --tap:38px;            /* altura mínima de botão em desktop */
+    --fs-body:0.95rem;
+    --fs-small:0.8rem;
+    --fs-tiny:0.72rem;
+    --fs-brand:clamp(1.4rem, 1.1rem + 1vw, 1.65rem);
+    --fs-label:0.74rem;
+  }
+  *{box-sizing:border-box}
+  html{font-size:16px}
+  body{margin:0;background:var(--bg);color:var(--text);font:var(--fs-body)/1.55 -apple-system,Segoe UI,Roboto,Arial,sans-serif;-webkit-tap-highlight-color:transparent}
+  .wrap{max-width:55rem;margin:0 auto}
+  header{padding:1.75rem 1.25rem 1.25rem;border-bottom:1px solid var(--border)}
+  .row{display:flex;flex-wrap:wrap;gap:0.5rem;align-items:center}
+  .between{justify-content:space-between}
+  .brand{font-family:ui-serif,Georgia,serif;font-size:var(--fs-brand);letter-spacing:-.01em;margin:0;font-weight:400}
+  .eyebrow{color:var(--faint);font-size:var(--fs-tiny);letter-spacing:.22em;text-transform:uppercase}
+  .bar{height:0.4rem;border-radius:99px;background:var(--surfaceHi);overflow:hidden;margin-top:1rem}
+  .bar>div{height:100%;background:var(--accent);transition:width .4s ease}
+  .pipe{margin-top:1rem;display:flex;flex-wrap:wrap;gap:0.4rem 1.25rem}
+  .pipe button{background:none;border:none;color:var(--muted);cursor:pointer;padding:0.25rem 0.1rem;display:flex;align-items:center;gap:0.5rem;font-size:var(--fs-small);min-height:var(--tap)}
+  .dot{width:0.5rem;height:0.5rem;border-radius:99px;display:inline-block}
+  .sec{padding:1rem 1.25rem;border-bottom:1px solid var(--border)}
+
+  input,textarea,button,select{font:inherit;color:var(--text)}
+  input,textarea,select{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:0.6rem 0.75rem;outline:none;width:100%;min-height:var(--tap)}
+  textarea{resize:vertical;line-height:1.55;min-height:auto}
+  input:focus-visible,textarea:focus-visible,select:focus-visible{border-color:var(--accent);box-shadow:0 0 0 2px rgba(111,207,151,.25)}
+  button:focus-visible,.chip:focus-visible,.statuschip:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+  .chip{border-radius:99px;padding:0.4rem 0.85rem;background:var(--surface);border:1px solid var(--border);color:var(--text);cursor:pointer;font-size:var(--fs-body);min-height:var(--tap)}
+  .chip.on{background:var(--accentDim);border-color:var(--accent);color:var(--accent)}
+  .btn{border-radius:var(--radius);padding:0.55rem 0.9rem;cursor:pointer;border:1px solid var(--border);background:transparent;color:var(--muted);min-height:var(--tap)}
+  .btn.primary{background:var(--accent);color:#06150d;border:none;font-weight:600}
+  .btn.ghost{color:var(--text)}
+  .btn[disabled],button[disabled]{opacity:.55;cursor:not-allowed}
+  .btn.loading{opacity:.85;cursor:progress}
+  .btn:active{transform:translateY(1px)}
+  .badge{font-size:var(--fs-tiny);border:1px solid var(--border);border-radius:5px;padding:1px 6px}
+
+  main{padding:0.5rem 1.25rem 4rem}
+  .cityhead{display:flex;align-items:center;gap:0.75rem;margin:1.5rem 0 0.75rem}
+  .cityhead .line{flex:1;height:1px;background:var(--border)}
+  .rail{border-left:1px solid var(--border);margin-left:4px}
+  .item{position:relative;padding-left:1.25rem;padding-bottom:0.75rem;margin-left:-4px}
+  .item .pin{position:absolute;left:-4.5px;top:1.4rem;width:9px;height:9px;border-radius:99px;box-shadow:0 0 0 4px var(--bg)}
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:0.9rem}
+  .name{font-size:0.95rem;font-weight:500}
+  .mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--muted);font-size:0.82rem}
+  .statuschip{font-size:0.72rem;border:1px solid var(--border);border-radius:99px;padding:0.25rem 0.65rem;cursor:pointer;min-height:auto}
+  .small{font-size:var(--fs-small);color:var(--muted)}
+  .footnote{font-size:var(--fs-small);color:var(--faint);line-height:1.6;border-top:1px solid var(--border);padding-top:1rem;margin-top:2.25rem}
+  a{color:var(--sky);text-decoration:none}
+  a:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:3px}
+
+  .toast{position:fixed;bottom:1.1rem;left:50%;transform:translateX(-50%);background:var(--surfaceHi);border:1px solid var(--border);border-radius:var(--radius);padding:0.65rem 1rem;font-size:var(--fs-body);display:none;max-width:90vw;z-index:60}
+  .toast.err{border-color:var(--rose);color:var(--rose)}
+  .toast.ok{border-color:var(--accent);color:var(--accent)}
+  .grid2{display:grid;gap:0.5rem}
+  label.lbl{font-size:var(--fs-label);letter-spacing:.18em;text-transform:uppercase;color:var(--faint);display:block;margin-bottom:0.35rem}
+  .muted{color:var(--muted)} .accent{color:var(--accent)} .amber{color:var(--amber)}
+
+  .field-err{border-color:var(--rose) !important}
+  .field-err-msg{font-size:var(--fs-tiny);color:var(--rose);margin-top:0.25rem;display:none}
+  .field-err-msg.on{display:block}
+
+  .modal{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;align-items:center;justify-content:center;padding:1.25rem;z-index:70}
+  .modal.on{display:flex}
+  .modal .panel{background:var(--surface);border:1px solid var(--border);border-radius:12px;max-width:32rem;width:100%;padding:1.15rem}
+  .modal .panel h3{margin:0 0 0.5rem;font-size:1rem}
+  .modal .panel pre{white-space:pre-wrap;word-wrap:break-word;font-size:var(--fs-small);color:var(--muted);max-height:16rem;overflow:auto;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:0.65rem;margin:0.4rem 0 0.85rem;font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+  .modal .panel .row{justify-content:flex-end}
+
+  .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);border:0}
+
+  /* ─── Mobile ─── */
+  @media (max-width: 640px){
+    :root{--tap:44px;--fs-body:1rem;--fs-small:0.85rem;--fs-tiny:0.75rem;--fs-label:0.78rem}
+    header{padding:1.25rem 1rem 1rem}
+    .sec{padding:0.85rem 1rem}
+    main{padding:0.25rem 1rem 4rem}
+    .row{gap:0.55rem}
+    .btn,.chip{padding:0.7rem 1rem}
+    .card{padding:0.9rem}
+    .item{padding-left:1.1rem}
+    .pipe{gap:0.5rem 1rem}
+  }
+
+  @media (max-width: 380px){
+    .row{gap:0.45rem}
+    .brand{font-size:1.25rem}
+  }
+
+  @media (prefers-reduced-motion: reduce){
+    .bar>div, .btn:active{transition:none;transform:none}
+  }
+</style>
+</head>
+<body>
+<a href="#main" class="sr-only">Pular para o conteúdo</a>
+
+<div class="wrap">
+  <header>
+    <div class="row between">
+      <div class="row" style="gap:0.75rem">
+        <h1 class="brand">Adelina <span class="eyebrow" aria-hidden="true">◆ Prospecção</span></h1>
+        <span class="sr-only">Painel de prospecção</span>
+      </div>
+      <span class="small" id="counter" aria-live="polite">—</span>
+    </div>
+    <div class="bar" role="progressbar" id="progressbar" aria-label="Pousadas contatadas"
+         aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+      <div id="progress" style="width:0%"></div>
+    </div>
+    <div class="pipe" id="pipe" role="toolbar" aria-label="Filtrar por status"></div>
+    <div class="row" style="margin-top:0.9rem;gap:0.9rem">
+      <span class="small">Canais:</span>
+      <span class="small" id="ch-email">✉️ e-mail —</span>
+      <span class="small" id="ch-wa">💬 WhatsApp —</span>
+    </div>
+  </header>
+
+  <div class="sec">
+    <label class="lbl" for="citySearch">◆ Buscar cidade</label>
+    <input id="citySearch" type="search" autocomplete="off"
+           placeholder="Digite uma cidade — ex.: Paraty, Ilhabela…"
+           aria-label="Buscar cidade" />
+    <div class="row" id="cityChips" style="margin-top:0.75rem" role="group" aria-label="Cidades disponíveis"></div>
+  </div>
+
+  <div class="sec">
+    <div class="row between">
+      <strong>⚙️ Canais (e-mail e WhatsApp)</strong>
+      <button class="btn" id="toggleConfig" aria-expanded="false" aria-controls="config">Mostrar / ocultar</button>
+    </div>
+    <div id="config" style="display:none;margin-top:0.75rem" class="grid2" hidden>
+      <div class="small muted">As credenciais ficam salvas no servidor (no volume). Só você, autenticado, consegue ver e mudar.</div>
+
+      <div style="margin-top:0.5rem"><strong>E-mail (SMTP)</strong></div>
+      <div class="small muted">
+        Exemplos: <span class="accent">Resend</span> host=<code>smtp.resend.com</code> porta=<code>465</code> user=<code>resend</code>.
+        <span class="accent">Brevo</span> host=<code>smtp-relay.brevo.com</code> porta=<code>587</code>.
+        Use um <strong>e-mail do seu domínio verificado</strong> (SPF/DKIM) no "remetente".
+      </div>
+
+      <div class="row" style="gap:0.5rem">
+        <div style="flex:2;min-width:12rem">
+          <label class="lbl" for="smtp_host">SMTP host</label>
+          <input id="smtp_host" placeholder="smtp.resend.com" autocomplete="off" />
+        </div>
+        <div style="flex:1;min-width:6rem">
+          <label class="lbl" for="smtp_port">Porta</label>
+          <input id="smtp_port" type="number" inputmode="numeric" placeholder="465" />
+        </div>
+        <div style="flex:1;min-width:7.5rem">
+          <label class="lbl" for="smtp_secure">Seguro (TLS)</label>
+          <select id="smtp_secure">
+            <option value="true">true (465)</option>
+            <option value="false">false (587)</option>
+          </select>
+        </div>
+      </div>
+
+      <div>
+        <label class="lbl" for="smtp_user">SMTP usuário</label>
+        <input id="smtp_user" placeholder="resend" autocomplete="off" />
+      </div>
+      <div>
+        <label class="lbl" for="smtp_pass">SMTP senha / API key</label>
+        <input id="smtp_pass" type="password" placeholder="re_xxxxxxxxxxxx" autocomplete="new-password" />
+      </div>
+
+      <div class="row" style="gap:0.5rem">
+        <div style="flex:1;min-width:9rem">
+          <label class="lbl" for="mail_from_name">Remetente — nome</label>
+          <input id="mail_from_name" placeholder="Adelina" autocomplete="name" />
+        </div>
+        <div style="flex:2;min-width:12rem">
+          <label class="lbl" for="mail_from_email">Remetente — e-mail</label>
+          <input id="mail_from_email" placeholder="contato@seudominio.com.br" inputmode="email" autocomplete="email" />
+        </div>
+      </div>
+
+      <div class="row" style="gap:0.5rem">
+        <div style="flex:2;min-width:12rem">
+          <label class="lbl" for="mail_reply_to">Responder para (opcional)</label>
+          <input id="mail_reply_to" placeholder="voce@seudominio.com.br" inputmode="email" autocomplete="email" />
+        </div>
+        <div style="flex:1;min-width:7rem">
+          <label class="lbl" for="email_throttle_seconds">Intervalo (s)</label>
+          <input id="email_throttle_seconds" type="number" inputmode="numeric" placeholder="8" />
+        </div>
+      </div>
+
+      <div style="margin-top:0.5rem"><strong>WhatsApp (Cloud API — opcional)</strong></div>
+      <div class="small muted">
+        Sem isso, o painel usa links <code>wa.me</code> (1 clique abre seu WhatsApp). Para envio programático em massa, precisa de WhatsApp Business + template aprovado pela Meta.
+      </div>
+
+      <div>
+        <label class="lbl" for="wa_enabled">Ativar Cloud API</label>
+        <select id="wa_enabled">
+          <option value="false">não (usar links wa.me)</option>
+          <option value="true">sim</option>
+        </select>
+      </div>
+      <div>
+        <label class="lbl" for="wa_token">Token (Meta)</label>
+        <input id="wa_token" type="password" placeholder="EAA…" autocomplete="new-password" />
+      </div>
+      <div>
+        <label class="lbl" for="wa_phone_number_id">Phone Number ID</label>
+        <input id="wa_phone_number_id" inputmode="numeric" placeholder="123456789012345" />
+      </div>
+
+      <div class="row" style="gap:0.5rem">
+        <div style="flex:2;min-width:12rem">
+          <label class="lbl" for="wa_template_name">Template aprovado</label>
+          <input id="wa_template_name" placeholder="nome_do_template" />
+        </div>
+        <div style="flex:1;min-width:7.5rem">
+          <label class="lbl" for="wa_template_lang">Idioma</label>
+          <input id="wa_template_lang" placeholder="pt_BR" />
+        </div>
+      </div>
+
+      <div class="row" style="margin-top:0.5rem"><button class="btn primary" id="saveConfig">Salvar canais</button></div>
+    </div>
+  </div>
+
+  <div class="sec">
+    <div class="row between">
+      <strong>Modelos da proposta</strong>
+      <button class="btn" id="toggleSettings" aria-expanded="false" aria-controls="settings">Mostrar / ocultar</button>
+    </div>
+    <div id="settings" style="display:none;margin-top:0.75rem" class="grid2" hidden>
+      <div>
+        <label class="lbl" for="sender_name">Seu nome (assina)</label>
+        <input id="sender_name" autocomplete="name" />
+      </div>
+      <div>
+        <label class="lbl" for="email_subject">Assunto do e-mail</label>
+        <input id="email_subject" />
+      </div>
+      <div>
+        <label class="lbl" for="email_body">Corpo do e-mail</label>
+        <textarea id="email_body" rows="8"></textarea>
+      </div>
+      <div>
+        <label class="lbl" for="whatsapp_body">Mensagem de WhatsApp</label>
+        <textarea id="whatsapp_body" rows="6"></textarea>
+      </div>
+      <div class="small">Variáveis: <span class="accent">{nome}</span> <span class="accent">{cidade}</span> <span class="accent">{seuNome}</span></div>
+      <div class="row"><button class="btn primary" id="saveSettings">Salvar modelos</button></div>
+    </div>
+  </div>
+
+  <div class="sec">
+    <div class="row">
+      <button class="btn ghost" id="emailAll">Enviar e-mail aos visíveis (com e-mail)</button>
+      <button class="btn" id="waAll">WhatsApp aos visíveis</button>
+      <button class="btn" id="showLog">Ver log de envios</button>
+    </div>
+    <div class="small" id="batchHint" style="margin-top:0.5rem" aria-live="polite"></div>
+  </div>
+
+  <main id="main"><div id="list"></div></main>
+
+  <div class="footnote">
+    Envie em lotes pequenos e com intervalo — disparo em massa derruba número e queima domínio.
+    A 1ª mensagem é apresentação com convite; nunca insista em quem não respondeu e respeite os descadastros.
+    E-mail exige SMTP do seu domínio verificado; WhatsApp frio pela API oficial exige template aprovado pela Meta.
+  </div>
+</div>
+
+<div class="toast" id="toast" role="status" aria-live="polite" aria-atomic="true"></div>
+
+<div class="modal" id="modal" aria-hidden="true" role="dialog" aria-labelledby="modalTitle" aria-modal="true">
+  <div class="panel">
+    <h3 id="modalTitle"></h3>
+    <pre id="modalBody"></pre>
+    <div class="row">
+      <button class="btn" id="modalClose">Fechar</button>
+      <button class="btn primary" id="modalOk" style="display:none">Confirmar</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const S = { contacts:[], settings:{}, status:{}, city:"Todas", statusFilter:"Todos" };
+const STATUS = {
+  novo:{label:"Não contatado",dot:"var(--faint)",fill:"#1a1a1e"},
+  enviado:{label:"Enviado",dot:"var(--amber)",fill:"#2a2317"},
+  respondeu:{label:"Respondeu",dot:"var(--sky)",fill:"#16252e"},
+  fechado:{label:"Fechou",dot:"var(--accent)",fill:"var(--accentDim)"},
+  sem:{label:"Sem interesse",dot:"var(--rose)",fill:"#2a1a1a"},
+};
+const ORDER = ["novo","enviado","respondeu","fechado","sem"];
+const slug = s => String(s||"").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"");
+
+// ──────────────────────────────────────────────────────────────────────────
+// helpers: api / toast / modal / busy / validação
+// ──────────────────────────────────────────────────────────────────────────
+async function api(url, opt){
+  let res;
+  try { res = await fetch(url, opt); }
+  catch (e){ throw new Error("Sem conexão com o servidor."); }
+  let data = null;
+  try { data = await res.json(); } catch (_) { /* corpo vazio é ok */ }
+  if (!res.ok){
+    const msg = (data && (data.error || data.message)) || ("HTTP " + res.status);
+    throw new Error(msg);
+  }
+  return data;
+}
+
+function toast(msg, kind){
+  const t = document.getElementById("toast");
+  t.textContent = msg;
+  t.className = "toast" + (kind ? " " + kind : "");
+  t.style.display = "block";
+  clearTimeout(t._t);
+  t._t = setTimeout(() => { t.style.display = "none"; t.className = "toast"; }, 3500);
+}
+
+// Modal: dois modos — alerta (informativo) e confirmação (Promise<boolean>)
+let _modalEscHandler = null;
+function _openModalBase(title, body, isConfirm){
+  document.getElementById("modalTitle").textContent = title;
+  document.getElementById("modalBody").textContent = body || "";
+  const m = document.getElementById("modal");
+  const close = document.getElementById("modalClose");
+  const ok = document.getElementById("modalOk");
+  close.textContent = isConfirm ? "Cancelar" : "Fechar";
+  ok.style.display = isConfirm ? "" : "none";
+  m.classList.add("on");
+  m.setAttribute("aria-hidden", "false");
+  // foco no botão de ação
+  setTimeout(()=> (isConfirm ? ok : close).focus(), 0);
+}
+function closeModal(){
+  const m = document.getElementById("modal");
+  m.classList.remove("on");
+  m.setAttribute("aria-hidden", "true");
+  if (_modalEscHandler){ document.removeEventListener("keydown", _modalEscHandler); _modalEscHandler = null; }
+}
+function openModal(title, body){
+  _openModalBase(title, body, false);
+}
+function openConfirm(title, body){
+  _openModalBase(title, body, true);
+  return new Promise((resolve) => {
+    const close = document.getElementById("modalClose");
+    const ok = document.getElementById("modalOk");
+    const cleanup = (v) => {
+      ok.removeEventListener("click", onOk);
+      close.removeEventListener("click", onCancel);
+      closeModal();
+      resolve(v);
+    };
+    const onOk = () => cleanup(true);
+    const onCancel = () => cleanup(false);
+    ok.addEventListener("click", onOk, { once:true });
+    close.addEventListener("click", onCancel, { once:true });
+    _modalEscHandler = (e) => { if (e.key === "Escape") cleanup(false); };
+    document.addEventListener("keydown", _modalEscHandler);
+  });
+}
+document.getElementById("modalClose").addEventListener("click", closeModal);
+document.getElementById("modal").addEventListener("click", (e) => { if (e.target.id === "modal") closeModal(); });
+document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !_modalEscHandler) closeModal(); });
+
+function withBusy(btn, label){
+  if (!btn) return () => {};
+  const prev = btn.textContent;
+  btn.disabled = true;
+  btn.classList.add("loading");
+  if (label) btn.textContent = label;
+  return () => { btn.disabled = false; btn.classList.remove("loading"); btn.textContent = prev; };
+}
+
+function isValidEmail(s){
+  s = String(s || "").trim();
+  if (!s) return false;
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s);
+}
+
+function esc(s){
+  return String(s == null ? "" : s).replace(/[&<>"']/g, c => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+  }[c]));
+}
+
+// ──────────────────────────────────────────────────────────────────────────
+// boot / fetches principais
+// ──────────────────────────────────────────────────────────────────────────
+async function boot(){
+  try {
+    S.status = await api("/api/status");
+    S.settings = await api("/api/settings");
+  } catch (e){
+    toast("Não consegui carregar o painel: " + e.message, "err");
+    return;
+  }
+  applyChannelBadges(S.status.email, S.status.whatsapp);
+  for (const k of ["sender_name","email_subject","email_body","whatsapp_body"]){
+    document.getElementById(k).value = S.settings[k] || "";
+  }
+  await loadContacts();
+}
+
+function applyChannelBadges(email, wa){
+  const e = document.getElementById("ch-email");
+  e.textContent = "✉️ e-mail " + (email ? "✓ pronto" : "— configure SMTP");
+  e.className = "small " + (email ? "accent" : "amber");
+  const w = document.getElementById("ch-wa");
+  w.textContent = "💬 WhatsApp " + (wa ? "✓ API ativa" : "— links wa.me");
+  w.className = "small " + (wa ? "accent" : "muted");
+}
+
+async function loadContacts(){
+  try {
+    S.contacts = await api("/api/contacts");
+    renderPipe(); renderCities(); renderList();
+  } catch (e){
+    toast("Erro ao carregar contatos: " + e.message, "err");
+  }
+}
+
+// ──────────────────────────────────────────────────────────────────────────
+// render: pipe / chips / lista
+// ──────────────────────────────────────────────────────────────────────────
+function renderPipe(){
+  const counts = { novo:0, enviado:0, respondeu:0, fechado:0, sem:0 };
+  S.contacts.forEach(c => counts[c.status] = (counts[c.status] || 0) + 1);
+  const total = S.contacts.length, done = total - (counts.novo || 0);
+  const pct = total ? Math.round(done / total * 100) : 0;
+
+  const counter = document.getElementById("counter");
+  counter.replaceChildren(
+    document.createTextNode(done + " "),
+    Object.assign(document.createElement("span"), { className: "muted", textContent: "/ " + total + " contatadas" }),
+  );
+
+  document.getElementById("progress").style.width = pct + "%";
+  const pb = document.getElementById("progressbar");
+  pb.setAttribute("aria-valuenow", String(pct));
+  pb.setAttribute("aria-valuetext", done + " de " + total + " pousadas contatadas (" + pct + "%)");
+
+  const pipe = document.getElementById("pipe");
+  pipe.replaceChildren();
+  ORDER.forEach(k => {
+    const b = document.createElement("button");
+    const isOn = S.statusFilter === k;
+    b.type = "button";
+    b.setAttribute("aria-pressed", isOn ? "true" : "false");
+    b.setAttribute("aria-label", "Filtrar: " + STATUS[k].label + " (" + (counts[k] || 0) + ")");
+    const dot = document.createElement("span"); dot.className = "dot"; dot.style.background = STATUS[k].dot;
+    const lab = document.createElement("span"); lab.style.color = (isOn ? "var(--text)" : "var(--muted)"); lab.textContent = STATUS[k].label;
+    const cnt = document.createElement("span"); cnt.className = "muted"; cnt.textContent = String(counts[k] || 0);
+    b.append(dot, lab, cnt);
+    b.addEventListener("click", () => { S.statusFilter = isOn ? "Todos" : k; loadContacts(); });
+    pipe.appendChild(b);
+  });
+}
+
+function citySearchValue(){
+  return slug(document.getElementById("citySearch").value || "");
+}
+
+function renderCities(){
+  const q = citySearchValue();
+  const box = document.getElementById("cityChips");
+  box.replaceChildren();
+
+  const all = document.createElement("button");
+  all.type = "button";
+  all.className = "chip" + (S.city === "Todas" ? " on" : "");
+  all.setAttribute("aria-pressed", S.city === "Todas" ? "true" : "false");
+  all.append(document.createTextNode("Todas "));
+  const ct = document.createElement("span"); ct.className = "muted"; ct.textContent = String(S.status.contacts || 0);
+  all.append(ct);
+  all.addEventListener("click", () => { S.city = "Todas"; loadContacts(); });
+  box.appendChild(all);
+
+  (S.status.cities || []).filter(c => slug(c.cidade).includes(q)).forEach(c => {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "chip" + (S.city === c.cidade ? " on" : "");
+    b.setAttribute("aria-pressed", S.city === c.cidade ? "true" : "false");
+    b.append(document.createTextNode(c.cidade + " "));
+    const m = document.createElement("span"); m.className = "muted"; m.textContent = String(c.n);
+    b.append(m);
+    b.addEventListener("click", () => { S.city = c.cidade; loadContacts(); });
+    box.appendChild(b);
+  });
+}
+
+// Filtragem combina chip de cidade selecionada, filtro de status e busca por texto.
+function visible(){
+  const q = citySearchValue();
+  return S.contacts.filter(c => {
+    if (S.city !== "Todas" && c.cidade !== S.city) return false;
+    if (S.statusFilter !== "Todos" && c.status !== S.statusFilter) return false;
+    if (q && !slug(c.cidade).includes(q)) return false;
+    return true;
+  });
+}
+
+function renderList(){
+  const vis = visible();
+  const withEmail = vis.filter(c => c.email && !c.opted_out).length;
+  document.getElementById("batchHint").textContent =
+    vis.length + " visíveis · " + withEmail + " com e-mail preenchido. Os envios em lote vão só para os visíveis não descadastrados.";
+
+  const root = document.getElementById("list");
+  root.replaceChildren();
+
+  if (!vis.length){
+    const p = document.createElement("p");
+    p.className = "small";
+    p.style.cssText = "text-align:center;padding:2.5rem 0";
+    p.textContent = "Nenhuma pousada com esse filtro.";
+    root.appendChild(p);
+    return;
+  }
+
+  const groups = {};
+  vis.forEach(c => (groups[c.cidade] = groups[c.cidade] || []).push(c));
+
+  for (const [cidade, lista] of Object.entries(groups)){
+    const sec = document.createElement("section");
+    sec.setAttribute("aria-labelledby", "sec-" + slug(cidade));
+    const head = document.createElement("div"); head.className = "cityhead";
+    const eye = document.createElement("h2");
+    eye.className = "eyebrow"; eye.id = "sec-" + slug(cidade);
+    eye.style.cssText = "font-weight:400;margin:0";
+    eye.textContent = "◆ " + cidade;
+    const cnt = document.createElement("span"); cnt.className = "muted small"; cnt.textContent = String(lista.length);
+    const line = document.createElement("span"); line.className = "line";
+    head.append(eye, cnt, line);
+    sec.appendChild(head);
+
+    const rail = document.createElement("div"); rail.className = "rail";
+    lista.forEach(c => rail.appendChild(card(c)));
+    sec.appendChild(rail);
+
+    root.appendChild(sec);
+  }
+}
+
+function card(c){
+  const cfg = STATUS[c.status] || STATUS.novo;
+  const el = document.createElement("div"); el.className = "item";
+
+  const siteHost = c.site ? esc(c.site.split("/")[0]) : "";
+  const siteHref = c.site ? "https://" + esc(c.site.replace(/^https?:\/\//, "")) : "";
+  const emailId = "email-" + esc(c.id);
+
+  el.innerHTML = `
+    <span class="pin" style="background:${esc(cfg.dot)}" aria-hidden="true"></span>
+    <div class="card">
+      <div class="row between" style="align-items:flex-start">
+        <div style="min-width:0">
+          <div class="row" style="gap:0.5rem">
+            <span class="name">${esc(c.nome)}</span>
+            <span class="small accent" aria-label="Avaliação ${esc(Number(c.rating || 0).toFixed(1))}">★ ${esc(Number(c.rating || 0).toFixed(1))}</span>
+            <span class="small muted">(${esc(c.avals || 0)})</span>
+          </div>
+          <div class="row" style="gap:0.5rem;margin-top:0.25rem">
+            <span class="mono">${esc(c.fone || "")}</span>
+            ${c.mobile ? "" : '<span class="badge amber">fixo · confira WhatsApp</span>'}
+            ${c.site ? '<a href="' + siteHref + '" target="_blank" rel="noopener noreferrer">' + siteHost + ' ↗</a>' : ""}
+            ${c.opted_out ? '<span class="badge" style="color:var(--rose)">descadastrado</span>' : ""}
+          </div>
+        </div>
+        <button class="statuschip" type="button" aria-label="Mudar status (atual: ${esc(cfg.label)})" style="color:${esc(cfg.dot)};background:${esc(cfg.fill)}">${esc(cfg.label)}</button>
+      </div>
+      <div style="margin-top:0.65rem">
+        <label class="sr-only" for="${emailId}">E-mail de ${esc(c.nome)}</label>
+        <input class="emailInput" id="${emailId}" placeholder="e-mail da pousada (preencha para enviar)" value="${esc(c.email || "")}" inputmode="email" autocomplete="email" />
+        <div class="field-err-msg" data-err></div>
+      </div>
+      <div class="row" style="margin-top:0.65rem">
+        <button class="btn primary doEmail" type="button">Enviar e-mail</button>
+        <button class="btn doWa" type="button">${esc(S.status.whatsapp ? "WhatsApp (API)" : "Abrir WhatsApp")}</button>
+        <button class="btn copyWa" type="button">Copiar msg</button>
+      </div>
+    </div>`;
+
+  // status cycle
+  el.querySelector(".statuschip").addEventListener("click", async (e) => {
+    const btn = e.currentTarget;
+    const release = withBusy(btn);
+    try {
+      const next = ORDER[(ORDER.indexOf(c.status) + 1) % ORDER.length];
+      await api("/api/contacts/" + c.id, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: next }),
+      });
+      await loadContacts();
+    } catch (err){
+      toast("Não consegui atualizar o status: " + err.message, "err");
+    } finally { release(); }
+  });
+
+  // input de e-mail: validação ao vivo + save on blur
+  const inp = el.querySelector(".emailInput");
+  const errMsg = el.querySelector("[data-err]");
+  const showFieldErr = (m) => { inp.classList.add("field-err"); errMsg.textContent = m; errMsg.classList.add("on"); inp.setAttribute("aria-invalid","true"); };
+  const clearFieldErr = () => { inp.classList.remove("field-err"); errMsg.classList.remove("on"); errMsg.textContent = ""; inp.removeAttribute("aria-invalid"); };
+  inp.addEventListener("input", clearFieldErr);
+  inp.addEventListener("blur", async () => {
+    const v = inp.value.trim();
+    if (v && !isValidEmail(v)){ showFieldErr("E-mail parece inválido."); return; }
+    if (v === (c.email || "")) return;
+    try {
+      await api("/api/contacts/" + c.id, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: v }),
+      });
+      c.email = v;
+      toast("E-mail salvo.", "ok");
+    } catch (err){
+      toast("Não consegui salvar o e-mail: " + err.message, "err");
+    }
+  });
+
+  // enviar e-mail individual
+  el.querySelector(".doEmail").addEventListener("click", async (e) => {
+    const btn = e.currentTarget;
+    const v = inp.value.trim();
+    if (!v){ showFieldErr("Preencha um e-mail antes de enviar."); inp.focus(); return; }
+    if (!isValidEmail(v)){ showFieldErr("E-mail parece inválido."); inp.focus(); return; }
+    if (v !== (c.email || "")){
+      try {
+        await api("/api/contacts/" + c.id, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email: v }),
+        });
+        c.email = v;
+      } catch (err){
+        toast("Não consegui salvar antes de enviar: " + err.message, "err");
+        return;
+      }
+    }
+    await sendEmail([c.id], btn);
+  });
+
+  // WhatsApp
+  el.querySelector(".doWa").addEventListener("click", (e) => doWhatsapp(c, e.currentTarget));
+
+  // copiar mensagem do WhatsApp
+  el.querySelector(".copyWa").addEventListener("click", async (e) => {
+    const btn = e.currentTarget;
+    const release = withBusy(btn, "Copiando…");
+    try {
+      const r = await api("/api/whatsapp/link/" + c.id);
+      const url = (r && r.url) || "";
+      const txt = decodeURIComponent((url.split("text=")[1] || ""));
+      try { await navigator.clipboard.writeText(txt); }
+      catch (_){
+        const ta = document.createElement("textarea");
+        ta.value = txt; document.body.appendChild(ta); ta.select();
+        try { document.execCommand("copy"); } catch(_){}
+        document.body.removeChild(ta);
+      }
+      toast("Mensagem copiada.", "ok");
+    } catch (err){
+      toast("Não consegui copiar: " + err.message, "err");
+    } finally { release(); }
+  });
+
+  return el;
+}
+
+// ──────────────────────────────────────────────────────────────────────────
+// envios
+// ──────────────────────────────────────────────────────────────────────────
+async function doWhatsapp(c, btn){
+  const release = withBusy(btn, "Enviando…");
+  try {
+    if (S.status.whatsapp){
+      const r = await api("/api/send-whatsapp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ contactIds: [c.id] }),
+      });
+      const first = (r.results || [])[0];
+      if (first && first.ok){
+        toast("WhatsApp enviado.", "ok");
+      } else {
+        throw new Error((first && first.error) || r.error || "Falha desconhecida");
+      }
+      await loadContacts();
+    } else {
+      const r = await api("/api/whatsapp/link/" + c.id);
+      const url = r && r.url;
+      if (!url) throw new Error("Servidor não devolveu um link wa.me.");
+      window.open(url, "_blank", "noopener");
+      if (c.status === "novo"){
+        await api("/api/contacts/" + c.id, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ status: "enviado" }),
+        });
+        await loadContacts();
+      }
+    }
+  } catch (err){
+    toast("WhatsApp: " + err.message, "err");
+  } finally { release(); }
+}
+
+async function sendEmail(ids, btn){
+  if (!S.status.email){ toast("SMTP não configurado no servidor.", "err"); return; }
+  const release = withBusy(btn, "Enviando…");
+  if (ids.length > 1) toast("Enviando " + ids.length + " e-mail(s)…");
+  try {
+    const r = await api("/api/send-email", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ contactIds: ids }),
+    });
+    const results = r.results || [];
+    const fails = results.filter(x => !x.ok);
+    if (ids.length > 1 || fails.length){
+      summarize("Envio de e-mails", ids.length, results);
+    } else {
+      toast("E-mail enviado.", "ok");
+    }
+    await loadContacts();
+  } catch (err){
+    toast("Erro no envio: " + err.message, "err");
+  } finally { release(); }
+}
+
+function summarize(title, total, results){
+  const ok = results.filter(x => x.ok).length;
+  const fails = results.filter(x => !x.ok);
+  let body = ok + " enviado(s), " + fails.length + " falharam (de " + total + ").";
+  if (fails.length){
+    const lines = fails.map(f => {
+      const c = S.contacts.find(x => x.id === f.contact_id);
+      const nm = c ? c.nome : (f.contact_id || "(contato)");
+      return "• " + nm + " — " + (f.error || "falha");
+    });
+    body += "\n\nFalhas:\n" + lines.join("\n");
+  }
+  openModal(title, body);
+  toast(ok + " enviados" + (fails.length ? (", " + fails.length + " falharam") : ""), fails.length ? "err" : "ok");
+}
+
+// ──────────────────────────────────────────────────────────────────────────
+// busca de cidade — filtra chips, filtra lista, auto-seleciona única
+// ──────────────────────────────────────────────────────────────────────────
+document.getElementById("citySearch").addEventListener("input", () => {
+  const q = citySearchValue();
+  const matches = (S.status.cities || []).filter(c => slug(c.cidade).includes(q));
+
+  // Se digitou e sobrou só uma cidade, seleciona automaticamente
+  if (q && matches.length === 1 && S.city !== matches[0].cidade){
+    S.city = matches[0].cidade;
+    renderCities();
+    renderList();
+    return;
+  }
+
+  // Se apagou o filtro de cidade selecionada (não bate mais com o termo), volta pra "Todas"
+  if (q && S.city !== "Todas" && !slug(S.city).includes(q)){
+    S.city = "Todas";
+  }
+
+  renderCities();
+  renderList();
+});
+
+// ──────────────────────────────────────────────────────────────────────────
+// settings / config / batch / log
+// ──────────────────────────────────────────────────────────────────────────
+document.getElementById("toggleSettings").addEventListener("click", (e) => {
+  const s = document.getElementById("settings");
+  const open = s.style.display === "none";
+  s.style.display = open ? "block" : "none";
+  if (open) s.removeAttribute("hidden"); else s.setAttribute("hidden", "");
+  e.currentTarget.setAttribute("aria-expanded", open ? "true" : "false");
+});
+
+document.getElementById("saveSettings").addEventListener("click", async (e) => {
+  const btn = e.currentTarget;
+  const release = withBusy(btn, "Salvando…");
+  try {
+    const body = {};
+    for (const k of ["sender_name","email_subject","email_body","whatsapp_body"]) body[k] = document.getElementById(k).value;
+    S.settings = await api("/api/settings", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    toast("Modelos salvos.", "ok");
+  } catch (err){
+    toast("Não consegui salvar modelos: " + err.message, "err");
+  } finally { release(); }
+});
+
+const CONFIG_KEYS = ["smtp_host","smtp_port","smtp_secure","smtp_user","smtp_pass","mail_from_name","mail_from_email","mail_reply_to","email_throttle_seconds","wa_enabled","wa_token","wa_phone_number_id","wa_template_name","wa_template_lang"];
+
+async function loadConfig(){
+  try {
+    const c = await api("/api/config");
+    for (const k of CONFIG_KEYS){
+      const el = document.getElementById(k); if (!el) continue;
+      if (el.tagName === "SELECT") el.value = c[k] || el.options[0].value;
+      else el.value = c[k] || "";
+    }
+  } catch (err){
+    toast("Não consegui carregar canais: " + err.message, "err");
+  }
+}
+
+document.getElementById("toggleConfig").addEventListener("click", (e) => {
+  const s = document.getElementById("config");
+  const open = s.style.display === "none";
+  s.style.display = open ? "block" : "none";
+  if (open) s.removeAttribute("hidden"); else s.setAttribute("hidden", "");
+  e.currentTarget.setAttribute("aria-expanded", open ? "true" : "false");
+  if (open) loadConfig();
+});
+
+document.getElementById("saveConfig").addEventListener("click", async (e) => {
+  const btn = e.currentTarget;
+  const fromEmail = document.getElementById("mail_from_email").value.trim();
+  if (fromEmail && !isValidEmail(fromEmail)){
+    toast("Remetente: e-mail parece inválido.", "err");
+    document.getElementById("mail_from_email").focus();
+    return;
+  }
+  const replyTo = document.getElementById("mail_reply_to").value.trim();
+  if (replyTo && !isValidEmail(replyTo)){
+    toast('Campo "responder para": e-mail parece inválido.', "err");
+    document.getElementById("mail_reply_to").focus();
+    return;
+  }
+  const release = withBusy(btn, "Salvando…");
+  try {
+    const body = {};
+    for (const k of CONFIG_KEYS){ const el = document.getElementById(k); body[k] = el ? el.value : ""; }
+    const r = await api("/api/config", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    S.status.email = r.email; S.status.whatsapp = r.whatsapp;
+    applyChannelBadges(r.email, r.whatsapp);
+    toast("Canais salvos.", "ok");
+  } catch (err){
+    toast("Não consegui salvar canais: " + err.message, "err");
+  } finally { release(); }
+});
+
+document.getElementById("emailAll").addEventListener("click", async (e) => {
+  const btn = e.currentTarget;
+  const candidates = visible().filter(c => !c.opted_out);
+  const withFilledEmail = candidates.filter(c => c.email);
+  const invalid = withFilledEmail.filter(c => !isValidEmail(c.email));
+  const ids = withFilledEmail.filter(c => isValidEmail(c.email)).map(c => c.id);
+
+  if (!ids.length){
+    toast(invalid.length
+      ? ("Nenhum e-mail válido — " + invalid.length + " com formato inválido.")
+      : "Nenhum visível com e-mail.", "err");
+    return;
+  }
+
+  const body = invalid.length
+    ? ("Vamos enviar para " + ids.length + " pousada(s).\n" + invalid.length + " estão com e-mail inválido e serão ignoradas.")
+    : ("Vamos enviar para " + ids.length + " pousada(s).");
+  const ok = await openConfirm("Enviar e-mail em lote", body);
+  if (!ok) return;
+
+  await sendEmail(ids, btn);
+});
+
+document.getElementById("waAll").addEventListener("click", async (e) => {
+  const btn = e.currentTarget;
+  const ids = visible().filter(c => !c.opted_out).map(c => c.id);
+  if (!ids.length){ toast("Nada visível.", "err"); return; }
+  if (!S.status.whatsapp){
+    toast("API não configurada — abra um a um pelos cartões (links wa.me).", "err");
+    return;
+  }
+  const ok = await openConfirm("Enviar WhatsApp em lote", "Vamos enviar via Cloud API para " + ids.length + " pousada(s).");
+  if (!ok) return;
+  const release = withBusy(btn, "Enviando…");
+  try {
+    const r = await api("/api/send-whatsapp", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ contactIds: ids }),
+    });
+    summarize("Envio de WhatsApp", ids.length, r.results || []);
+    await loadContacts();
+  } catch (err){
+    toast("Erro no envio: " + err.message, "err");
+  } finally { release(); }
+});
+
+document.getElementById("showLog").addEventListener("click", async (e) => {
+  const btn = e.currentTarget;
+  const release = withBusy(btn);
+  try {
+    const log = await api("/api/log");
+    if (!log || !log.length){ openModal("Log de envios", "Sem envios ainda."); return; }
+    const txt = log.map(m => {
+      const when = (m.created_at || "").slice(0, 16).replace("T", " ");
+      return when + " · " + m.channel + " · " + (m.nome || m.contact_id) + " · " + m.status + (m.error ? (" · " + m.error) : "");
+    }).join("\n");
+    openModal("Log de envios", txt);
+  } catch (err){
+    toast("Erro ao buscar log: " + err.message, "err");
+  } finally { release(); }
+});
+
+boot();
+</script>
+</body>
+</html>
