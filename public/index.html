@@ -831,6 +831,34 @@
 
       <section class="panel-section">
         <div class="panel-head">
+          <strong>🔎 Descobrir pousadas</strong>
+          <button class="btn ghost" id="toggleDiscover" aria-expanded="false" aria-controls="discoverPanel">Mostrar / ocultar</button>
+        </div>
+        <div id="discoverPanel" class="panel-body" style="display:none" hidden>
+          <div style="color:var(--muted);font-size:var(--fs-small)">
+            Busca acomodações cadastradas no <strong>OpenStreetMap</strong> (hotéis, pousadas, hostels, chalés) para a cidade informada. Telefone e site vêm dos campos OSM quando preenchidos — pousadas sem esses dados ainda podem ser adicionadas e completadas depois.
+          </div>
+          <div class="form-row">
+            <div style="flex:3;min-width:14rem">
+              <label class="lbl" for="discoverCity">Cidade</label>
+              <input id="discoverCity" placeholder="Ex.: Paraty, Maceió, Bombinhas…" autocomplete="off" />
+            </div>
+            <div style="flex:0 0 auto;align-self:flex-end">
+              <button class="btn primary" id="btnDiscover" type="button">Buscar</button>
+            </div>
+          </div>
+          <div id="discoverStatus" aria-live="polite" style="color:var(--muted);font-size:var(--fs-small);min-height:1.1rem"></div>
+          <div class="form-row" id="discoverActions" style="display:none">
+            <button class="btn" id="discoverSelectNew" type="button">Selecionar novas</button>
+            <button class="btn ghost" id="discoverDeselect" type="button">Limpar seleção</button>
+            <button class="btn primary" id="discoverImport" type="button" disabled style="margin-left:auto">Adicionar selecionadas</button>
+          </div>
+          <div id="discoverResults" class="contact-grid"></div>
+        </div>
+      </section>
+
+      <section class="panel-section">
+        <div class="panel-head">
           <strong>⚙ Canais</strong>
           <button class="btn ghost" id="toggleConfig" aria-expanded="false" aria-controls="config">Mostrar / ocultar</button>
         </div>
@@ -1777,6 +1805,143 @@ document.getElementById("showLog").addEventListener("click", async (e) => {
     openModal("Log de envios", txt);
   } catch (err){
     toast("Erro ao buscar log: " + err.message, "err");
+  } finally { release(); }
+});
+
+// ──────────────────────────────────────────────────────────────────────────
+// Descobrir pousadas (OpenStreetMap / Overpass)
+// ──────────────────────────────────────────────────────────────────────────
+const discoverState = { results: [], selected: new Set() };
+
+togglePanel("toggleDiscover", "discoverPanel");
+
+function updateDiscoverImportBtn(){
+  const btn = document.getElementById("discoverImport");
+  const n = discoverState.selected.size;
+  btn.textContent = n ? ("Adicionar " + n + " selecionada(s)") : "Adicionar selecionadas";
+  btn.disabled = !n;
+}
+
+function renderDiscoverResults(){
+  const root = document.getElementById("discoverResults");
+  root.replaceChildren();
+  if (!discoverState.results.length){ updateDiscoverImportBtn(); return; }
+
+  for (const it of discoverState.results){
+    const card = document.createElement("div");
+    card.className = "contact-card";
+    const checked = discoverState.selected.has(it.id) ? "checked" : "";
+    const disabled = it.existsInDb ? "disabled" : "";
+    const siteHost = it.site ? esc(it.site.split("/")[0]) : "";
+    const siteHref = it.site ? "https://" + esc(it.site) : "";
+
+    card.innerHTML = `
+      <div class="contact-head">
+        <div style="min-width:0;flex:1">
+          <div class="contact-name">${esc(it.nome)}</div>
+          <div class="meta-row">
+            ${it.fone ? '<span class="phone">' + esc(it.fone) + '</span>' : '<span class="badge">sem telefone</span>'}
+            ${it.site ? '<a href="' + siteHref + '" target="_blank" rel="noopener noreferrer">' + siteHost + ' ↗</a>' : ""}
+            ${it.email ? '<span class="badge">✉ ' + esc(it.email) + '</span>' : ""}
+            ${it.existsInDb
+              ? '<span class="badge" style="color:var(--muted)">já na base</span>'
+              : '<span class="badge" style="color:var(--accent);border-color:rgba(111,207,151,.3);background:var(--accent-dim)">novo</span>'}
+          </div>
+          <div class="meta-row" style="margin-top:0.2rem">
+            <span class="small" style="color:var(--faint);font-size:var(--fs-tiny)">tipo OSM: ${esc(it.tipo)}</span>
+          </div>
+        </div>
+        <label style="display:flex;align-items:center;gap:0.35rem;cursor:${it.existsInDb ? 'not-allowed' : 'pointer'};color:var(--muted);font-size:var(--fs-small)">
+          <input type="checkbox" data-id="${esc(it.id)}" ${checked} ${disabled} style="width:1.1rem;height:1.1rem;min-height:auto;accent-color:var(--accent)" />
+          <span>Importar</span>
+        </label>
+      </div>`;
+    const cb = card.querySelector("input[type=checkbox]");
+    cb.addEventListener("change", () => {
+      if (cb.checked) discoverState.selected.add(it.id);
+      else discoverState.selected.delete(it.id);
+      updateDiscoverImportBtn();
+    });
+    root.appendChild(card);
+  }
+  updateDiscoverImportBtn();
+}
+
+async function runDiscover(){
+  const btn = document.getElementById("btnDiscover");
+  const city = document.getElementById("discoverCity").value.trim();
+  if (!city){ toast("Informe uma cidade.", "err"); return; }
+  const status = document.getElementById("discoverStatus");
+  status.textContent = "Consultando OpenStreetMap (pode levar até 30s)…";
+  document.getElementById("discoverResults").replaceChildren();
+  document.getElementById("discoverActions").style.display = "none";
+  discoverState.results = [];
+  discoverState.selected = new Set();
+  const release = withBusy(btn, "Buscando…");
+  try {
+    const r = await api("/api/discover", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ city }),
+    });
+    discoverState.results = r.results || [];
+    const totalNew = discoverState.results.filter(x => !x.existsInDb).length;
+    const totalDup = discoverState.results.length - totalNew;
+    if (!discoverState.results.length){
+      status.textContent = "";
+      const empty = document.createElement("div");
+      empty.className = "empty-state";
+      empty.innerHTML = '<div class="icon" aria-hidden="true">🔍</div><strong>Nada encontrado em ' + esc(city) + '.</strong><div style="margin-top:0.3rem;font-size:var(--fs-small)">Tente o nome exato do município (acentos importam). Áreas pequenas podem não ter dados no OSM.</div>';
+      document.getElementById("discoverResults").appendChild(empty);
+    } else {
+      status.textContent = discoverState.results.length + " encontrada(s) · " + totalNew + " novas · " + totalDup + " já na base.";
+      renderDiscoverResults();
+      document.getElementById("discoverActions").style.display = totalNew ? "flex" : "none";
+    }
+  } catch (err){
+    status.textContent = "";
+    toast("Falha na busca: " + err.message, "err");
+  } finally { release(); }
+}
+
+document.getElementById("btnDiscover").addEventListener("click", runDiscover);
+document.getElementById("discoverCity").addEventListener("keydown", (e) => {
+  if (e.key === "Enter"){ e.preventDefault(); runDiscover(); }
+});
+document.getElementById("discoverSelectNew").addEventListener("click", () => {
+  discoverState.selected = new Set(discoverState.results.filter(x => !x.existsInDb).map(x => x.id));
+  renderDiscoverResults();
+});
+document.getElementById("discoverDeselect").addEventListener("click", () => {
+  discoverState.selected.clear();
+  renderDiscoverResults();
+});
+document.getElementById("discoverImport").addEventListener("click", async (e) => {
+  const btn = e.currentTarget;
+  const sel = discoverState.results.filter(x => discoverState.selected.has(x.id));
+  if (!sel.length) return;
+  const release = withBusy(btn, "Adicionando…");
+  try {
+    const r = await api("/api/discover/import", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ items: sel }),
+    });
+    toast(r.added + " adicionada(s)" + (r.skipped ? (" · " + r.skipped + " ignorada(s)") : ""), "ok");
+    // marca como existente nos resultados visíveis e limpa seleção
+    const importedIds = new Set(r.ids || []);
+    for (const it of discoverState.results){
+      if (importedIds.has(it.id)) it.existsInDb = true;
+    }
+    discoverState.selected.clear();
+    // recarrega base e status (city list / counts)
+    try { S.status = await api("/api/status"); } catch {}
+    await loadContacts();
+    renderDiscoverResults();
+    document.getElementById("discoverActions").style.display =
+      discoverState.results.some(x => !x.existsInDb) ? "flex" : "none";
+  } catch (err){
+    toast("Falha ao importar: " + err.message, "err");
   } finally { release(); }
 });
 

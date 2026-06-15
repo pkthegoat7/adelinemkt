@@ -6,6 +6,7 @@ import crypto from "node:crypto";
 import { Contacts, Messages, Settings, Channels, contactCount } from "./src/store.js";
 import { sendEmail, emailConfigured, fill, resetTransporter, emailThrottleMs } from "./src/email.js";
 import { sendWhatsapp, whatsappConfigured, waLink } from "./src/whatsapp.js";
+import { discoverByCity, importCandidates } from "./src/discover.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -211,6 +212,28 @@ app.post("/api/send-whatsapp", async (req, res) => {
 });
 
 app.get("/api/log", (req, res) => res.json(Messages.recent(120)));
+
+// ── Descobrir pousadas via OpenStreetMap (Overpass) ──
+app.post("/api/discover", async (req, res) => {
+  const city = (req.body && typeof req.body.city === "string" ? req.body.city : "").trim();
+  if (!city) return res.status(400).json({ error: "Informe a cidade." });
+  if (city.length > 80) return res.status(400).json({ error: "Cidade longa demais." });
+  try {
+    const results = await discoverByCity(city);
+    res.json({ city, count: results.length, results });
+  } catch (e) {
+    const msg = e.name === "AbortError" ? "Tempo esgotado na consulta ao OpenStreetMap." : e.message;
+    res.status(502).json({ error: "Falha ao consultar OpenStreetMap: " + msg });
+  }
+});
+
+app.post("/api/discover/import", (req, res) => {
+  const items = Array.isArray(req.body && req.body.items) ? req.body.items : [];
+  if (!items.length) return res.status(400).json({ error: "Nada para importar." });
+  if (items.length > 500) return res.status(400).json({ error: "Limite de 500 itens por importação." });
+  const r = importCandidates(items);
+  res.json(r);
+});
 
 // ── UI ──
 app.use("/", auth, express.static(path.join(__dirname, "public")));
